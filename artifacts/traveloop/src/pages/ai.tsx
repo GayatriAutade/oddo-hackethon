@@ -8,23 +8,17 @@ import {
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Plus, Send, Trash2, MessageSquare, Bot, User, Terminal } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, Plus, Send, Trash2, MessageSquare, Bot, User } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
   streaming?: boolean;
 }
-
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-};
 
 export default function AI() {
   const { data: conversations, isLoading: loadingConvs } = useListGeminiConversations();
@@ -61,17 +55,12 @@ export default function AI() {
   }, [activeConvId]);
 
   const handleNewConversation = async () => {
-    try {
-      const conv = await createConv.mutateAsync({ data: { title: "NEW DIRECTIVE" } });
-      queryClient.invalidateQueries({ queryKey: getListGeminiConversationsQueryKey() });
-      setActiveConvId(conv.id);
-    } catch {
-      toast({ title: "[ERR]", description: "Failed to initialize connection", variant: "destructive" });
-    }
+    const conv = await createConv.mutateAsync({ data: { title: "New Chat" } });
+    queryClient.invalidateQueries({ queryKey: getListGeminiConversationsQueryKey() });
+    setActiveConvId(conv.id);
   };
 
   const handleDeleteConv = async (conv: GeminiConversation) => {
-    if (!confirm("[WARNING] Purge conversation history?")) return;
     await deleteConv.mutateAsync({ id: conv.id });
     queryClient.invalidateQueries({ queryKey: getListGeminiConversationsQueryKey() });
     if (activeConvId === conv.id) setActiveConvId(null);
@@ -95,7 +84,7 @@ export default function AI() {
         body: JSON.stringify({ content: userMsg }),
       });
 
-      if (!response.ok) throw new Error("Transmission failed");
+      if (!response.ok) throw new Error("Failed to send message");
 
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
@@ -131,7 +120,7 @@ export default function AI() {
       setLocalMessages([]);
       queryClient.invalidateQueries({ queryKey: getListGeminiMessagesQueryKey(activeConvId) });
     } catch {
-      toast({ title: "[ERR]", description: "Transmission interrupted", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to send message", variant: "destructive" });
       setLocalMessages([]);
     } finally {
       setStreaming(false);
@@ -147,48 +136,39 @@ export default function AI() {
 
   return (
     <AppLayout>
-      <div className="flex h-[calc(100vh)] lg:h-[calc(100vh-2rem)] pt-6 lg:p-6 max-w-7xl mx-auto gap-6 overflow-hidden pb-safe lg:pb-0">
-        
-        {/* Sidebar - Channels */}
-        <div className="w-80 hidden md:flex flex-shrink-0 flex-col gap-4">
-          <div className="border-b border-white/10 pb-4">
-            <h1 className="text-3xl font-serif font-bold text-foreground uppercase tracking-tight">Mainframe <span className="text-primary">Uplink</span></h1>
-            <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Secure communication channel</p>
-          </div>
-          
-          <Button 
-            className="w-full rounded-none font-mono uppercase tracking-widest bg-primary/10 hover:bg-primary border border-primary/50 text-primary hover:text-primary-foreground transition-all h-12 gap-3" 
-            onClick={handleNewConversation} 
-            disabled={createConv.isPending}
-          >
-            {createConv.isPending ? "CONNECTING..." : <><Plus className="h-4 w-4" /> Open Channel</>}
+      <div className="flex h-[calc(100vh-8rem)] gap-4">
+        {/* Sidebar */}
+        <div className="w-64 flex-shrink-0 flex flex-col gap-3">
+          <Button className="gap-2 w-full" onClick={handleNewConversation} disabled={createConv.isPending}>
+            <Plus className="h-4 w-4" />
+            New Chat
           </Button>
-          
-          <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-            <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest mb-4 mt-2">Active Channels</p>
+          <div className="flex-1 overflow-y-auto space-y-1">
             {loadingConvs ? (
-              Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full bg-white/5 rounded-none" />)
+              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)
             ) : conversations?.length === 0 ? (
-              <div className="text-center py-8 border border-white/5 bg-white/5 font-mono text-xs text-muted-foreground uppercase">
-                No active links
+              <div className="text-center py-8 text-sm text-muted-foreground px-2">
+                Start a new chat to plan your trip with AI
               </div>
             ) : (
               conversations?.map((conv) => (
                 <div
                   key={conv.id}
-                  className={`flex items-center gap-3 p-3 cursor-pointer group transition-all border ${
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer group transition-colors ${
                     activeConvId === conv.id
-                      ? "bg-primary/10 border-primary text-primary"
-                      : "bg-background/50 border-white/5 hover:border-white/20 text-foreground"
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted"
                   }`}
                   onClick={() => setActiveConvId(conv.id)}
                 >
-                  <Terminal className={`h-4 w-4 flex-shrink-0 ${activeConvId === conv.id ? 'text-primary' : 'text-muted-foreground'}`} />
-                  <span className="font-mono text-xs uppercase tracking-wide truncate flex-1">{conv.title}</span>
+                  <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="text-sm truncate flex-1">{conv.title}</span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-destructive hover:bg-destructive/20 hover:text-destructive rounded-none"
+                    className={`h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ${
+                      activeConvId === conv.id ? "hover:bg-primary-foreground/20 text-primary-foreground" : "hover:bg-destructive/10 text-destructive"
+                    }`}
                     onClick={(e) => { e.stopPropagation(); handleDeleteConv(conv); }}
                   >
                     <Trash2 className="h-3 w-3" />
@@ -199,142 +179,95 @@ export default function AI() {
           </div>
         </div>
 
-        {/* Terminal Area */}
-        <Card className="flex-1 flex flex-col overflow-hidden glass-panel border-white/10 rounded-none relative">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-bl-full pointer-events-none" />
-          
+        {/* Chat area */}
+        <Card className="flex-1 flex flex-col overflow-hidden">
           {!activeConvId ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col items-center justify-center text-center p-8 relative z-10">
-              <div className="absolute inset-0 pattern-grid-lg opacity-[0.03] pointer-events-none" />
-              <div className="w-24 h-24 border border-primary/30 bg-primary/5 flex items-center justify-center mb-8 relative">
-                <Sparkles className="h-10 w-10 text-primary" />
-                <div className="absolute inset-0 border border-primary animate-ping opacity-20" />
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                <Sparkles className="h-8 w-8 text-primary" />
               </div>
-              <h2 className="text-3xl font-serif font-bold uppercase tracking-widest text-foreground mb-4">Awaiting Connection</h2>
-              <p className="font-mono text-sm text-muted-foreground max-w-md mb-8 leading-relaxed uppercase tracking-wider">
-                Establish a secure uplink to query the global intelligence database for destination analytics, operational routes, and field logistics.
+              <h2 className="text-2xl font-bold font-sans mb-2">AI Travel Assistant</h2>
+              <p className="text-muted-foreground max-w-md mb-6">
+                Your personal travel planning expert. Ask me about destinations, itineraries, budgets, visa requirements, local tips, and more.
               </p>
-              <Button 
-                onClick={handleNewConversation} 
-                disabled={createConv.isPending} 
-                className="rounded-none font-mono uppercase tracking-widest bg-primary text-primary-foreground border border-primary shadow-[0_0_15px_rgba(0,212,232,0.3)] hover:shadow-[0_0_25px_rgba(0,212,232,0.5)] transition-all h-14 px-8 gap-3"
-              >
-                {createConv.isPending ? "INITIALIZING..." : "Initialize Uplink"}
+              <Button onClick={handleNewConversation} disabled={createConv.isPending} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Start a new chat
               </Button>
-            </motion.div>
+            </div>
           ) : (
-            <div className="flex-1 flex flex-col h-full relative z-10">
-              {/* Header Mobile */}
-              <div className="md:hidden border-b border-white/10 p-4 bg-background/80 backdrop-blur-md flex items-center justify-between">
-                <span className="font-mono text-xs uppercase text-primary tracking-widest">Channel Active</span>
-                <Button variant="outline" size="sm" className="rounded-none h-8 text-[10px] font-mono border-white/20" onClick={() => setActiveConvId(null)}>Close</Button>
-              </div>
-
-              {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 custom-scrollbar">
+            <>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {loadingMessages ? (
                   Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className={`flex gap-4 ${i % 2 === 0 ? "flex-row-reverse" : ""}`}>
-                      <Skeleton className="h-10 w-10 rounded-none bg-white/10 flex-shrink-0" />
-                      <Skeleton className={`h-24 ${i % 2 === 0 ? "w-64" : "w-48"} rounded-none bg-white/5`} />
+                    <div key={i} className={`flex gap-3 ${i % 2 === 0 ? "" : "flex-row-reverse"}`}>
+                      <Skeleton className="h-8 w-8 rounded-full flex-shrink-0" />
+                      <Skeleton className={`h-16 ${i % 2 === 0 ? "w-64" : "w-48"} rounded-xl`} />
                     </div>
                   ))
                 ) : displayMessages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                    <Bot className="h-16 w-16 text-primary/20 mb-6" />
-                    <p className="font-mono text-sm text-primary uppercase tracking-widest mb-8">Connection established. Ready for input.</p>
-                    <div className="flex flex-col gap-3 w-full max-w-md">
+                    <Bot className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                    <p className="text-muted-foreground">Ask me anything about your travels!</p>
+                    <div className="mt-4 flex flex-wrap gap-2 justify-center">
                       {[
-                        "Detail infiltration points for Tokyo, Japan.",
-                        "Calculate budget parameters for 14 days in Europe.",
-                        "Identify optimal extraction routes in Southeast Asia."
+                        "Best time to visit Japan?",
+                        "Budget Europe trip for 2 weeks",
+                        "Hidden gems in Southeast Asia",
                       ].map((suggestion) => (
                         <button
                           key={suggestion}
-                          className="text-xs font-mono border border-white/10 bg-white/5 p-4 hover:bg-primary/10 hover:border-primary/50 hover:text-primary transition-all text-left uppercase tracking-wider"
+                          className="text-sm border rounded-full px-4 py-1.5 hover:bg-muted transition-colors"
                           onClick={() => setInput(suggestion)}
                         >
-                          &gt; {suggestion}
+                          {suggestion}
                         </button>
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-8">
-                    {displayMessages.map((msg, i) => (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        key={i} 
-                        className={`flex gap-4 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
-                      >
-                        <div className={`w-10 h-10 flex-shrink-0 flex items-center justify-center text-xs font-bold border ${
-                          msg.role === "user" 
-                            ? "bg-secondary/10 border-secondary/50 text-secondary" 
-                            : "bg-primary/10 border-primary/50 text-primary"
-                        }`}>
-                          {msg.role === "user" ? <User className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
-                        </div>
-                        <div className={`max-w-[85%] md:max-w-[75%] p-5 border ${
-                          msg.role === "user"
-                            ? "bg-secondary/5 border-secondary/20 ml-12"
-                            : "bg-background/80 border-white/10 mr-12 backdrop-blur-md"
-                        }`}>
-                          <div className="font-mono text-[10px] uppercase tracking-widest mb-3 pb-2 border-b border-white/5 flex items-center justify-between">
-                            <span className={msg.role === "user" ? "text-secondary" : "text-primary"}>
-                              {msg.role === "user" ? "OPERATIVE" : "MAINFRAME"}
-                            </span>
-                            <span className="text-muted-foreground opacity-50">SYS.TIME</span>
-                          </div>
-                          <div className="prose prose-invert max-w-none">
-                            <p className="font-mono text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
-                              {msg.content}
-                            </p>
-                          </div>
-                          {"streaming" in msg && (msg as Message).streaming && (
-                            <span className="inline-block w-3 h-5 bg-primary animate-pulse ml-2 align-middle mt-2" />
-                          )}
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
+                  displayMessages.map((msg, i) => (
+                    <div key={i} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                      <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${
+                        msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
+                      }`}>
+                        {msg.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                      </div>
+                      <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground rounded-tr-sm"
+                          : "bg-muted rounded-tl-sm"
+                      }`}>
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                        {"streaming" in msg && (msg as Message).streaming && (
+                          <span className="inline-block w-2 h-4 bg-current animate-pulse ml-1 rounded-sm" />
+                        )}
+                      </div>
+                    </div>
+                  ))
                 )}
-                <div ref={messagesEndRef} className="h-4" />
+                <div ref={messagesEndRef} />
               </div>
 
-              {/* Input Area */}
-              <div className="p-4 md:p-6 bg-background/80 backdrop-blur-xl border-t border-white/10">
-                <div className="flex items-end gap-3 max-w-4xl mx-auto relative">
-                  <div className="flex-1 bg-background/50 border border-primary/30 focus-within:border-primary focus-within:shadow-[0_0_15px_rgba(0,212,232,0.2)] transition-all flex items-center">
-                    <span className="pl-4 font-mono text-primary font-bold select-none">&gt;</span>
-                    <Input
-                      placeholder="ENTER QUERY..."
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      disabled={streaming}
-                      className="flex-1 h-14 bg-transparent border-0 font-mono text-sm uppercase focus-visible:ring-0 rounded-none rounded-l-none"
-                      autoFocus
-                    />
-                  </div>
-                  <Button 
-                    onClick={handleSend} 
-                    disabled={!input.trim() || streaming} 
-                    className="h-14 px-6 rounded-none bg-primary hover:bg-primary/90 text-primary-foreground border border-primary font-mono uppercase tracking-widest"
-                  >
-                    {streaming ? "TX..." : <><Send className="h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Transmit</span></>}
+              <div className="border-t p-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Ask about destinations, itineraries, budgets..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={streaming}
+                    className="flex-1"
+                  />
+                  <Button onClick={handleSend} disabled={!input.trim() || streaming} className="gap-2 px-4">
+                    <Send className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="max-w-4xl mx-auto mt-3 flex justify-between items-center px-1">
-                  <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-                    Encryption Active. Press ENTER to transmit.
-                  </p>
-                  <p className="font-mono text-[10px] text-primary/50 uppercase tracking-widest hidden md:block">
-                    POWERED BY GEMINI CORE
-                  </p>
-                </div>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Powered by Gemini AI — Press Enter to send
+                </p>
               </div>
-            </div>
+            </>
           )}
         </Card>
       </div>

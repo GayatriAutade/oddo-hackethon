@@ -9,23 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Plus, Trash2, Package, CheckSquare, ListTodo, X } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Package } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { motion, AnimatePresence } from "framer-motion";
 
 const CATEGORIES = ["Clothing", "Electronics", "Documents", "Toiletries", "Medicine", "Money", "Food", "Other"];
-
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-};
-
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
-};
 
 export default function Packing() {
   const { id } = useParams<{ id: string }>();
@@ -49,9 +39,10 @@ export default function Packing() {
     try {
       await createItem.mutateAsync({ id: tripId, data: newItem });
       setNewItem({ name: "", category: newItem.category });
+      setAdding(false);
       refresh();
     } catch {
-      toast({ title: "[ERR]", description: "Failed to requisition asset", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to add item", variant: "destructive" });
     }
   };
 
@@ -73,185 +64,113 @@ export default function Packing() {
 
   const packed = items?.filter((i) => i.isPacked).length ?? 0;
   const total = items?.length ?? 0;
-  const progress = total > 0 ? (packed / total) * 100 : 0;
 
   return (
     <AppLayout>
-      <div className="p-6 lg:p-12 max-w-4xl mx-auto space-y-8">
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border/50 pb-8"
-        >
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <Link href={`/trips/${tripId}`}>
-                <Button variant="outline" size="sm" className="rounded-none border-white/20 hover:bg-white/10 font-mono uppercase tracking-widest text-[10px] h-8 gap-2">
-                  <ArrowLeft className="h-3.5 w-3.5" /> Back
-                </Button>
-              </Link>
-              <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest border border-white/10 px-2 py-1">
-                {trip?.name || "LOADING..."}
-              </span>
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href={`/trips/${tripId}`}>
+              <Button variant="ghost" size="sm" className="gap-2"><ArrowLeft className="h-4 w-4" />Back</Button>
+            </Link>
+            <div>
+              <h1 className="text-3xl font-bold font-sans tracking-tight">{trip?.name}</h1>
+              <p className="text-muted-foreground text-sm">Packing Checklist</p>
             </div>
-            <h1 className="text-4xl md:text-5xl font-serif font-bold tracking-tight text-foreground uppercase">
-              Asset <span className="text-secondary">Manifest</span>
-            </h1>
           </div>
-          <Button 
-            onClick={() => setAdding(!adding)}
-            className={`rounded-none font-mono uppercase tracking-widest h-12 px-6 gap-3 transition-all ${
-              adding 
-                ? "bg-white/10 border-white/20 hover:bg-white/20 text-white" 
-                : "bg-secondary hover:bg-secondary/90 text-secondary-foreground border border-secondary shadow-[0_0_15px_rgba(255,215,0,0.3)] hover:shadow-[0_0_25px_rgba(255,215,0,0.5)]"
-            }`}
-          >
-            {adding ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {adding ? "Abort Entry" : "Requisition Asset"}
+          <Button className="gap-2" onClick={() => setAdding(true)}>
+            <Plus className="h-4 w-4" />Add Item
           </Button>
-        </motion.div>
+        </div>
 
         {total > 0 && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-            <Card className="glass-panel border-white/10 rounded-none relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-full h-1 bg-white/5" />
-              <div 
-                className="absolute top-0 left-0 h-1 bg-secondary shadow-[0_0_10px_rgba(255,215,0,0.5)] transition-all duration-1000 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-              <CardContent className="p-6 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-none border border-secondary/30 bg-secondary/10 flex items-center justify-center">
-                    <CheckSquare className="h-5 w-5 text-secondary" />
-                  </div>
-                  <div>
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Readiness Level</p>
-                    <p className="font-serif text-2xl font-bold text-foreground">
-                      {packed} / {total} <span className="text-muted-foreground text-lg">SECURED</span>
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-mono text-3xl font-bold text-secondary">{Math.round(progress)}%</p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">{packed} of {total} items packed</span>
+                <span className="text-sm text-muted-foreground">{total > 0 ? Math.round((packed / total) * 100) : 0}%</span>
+              </div>
+              <div className="bg-muted rounded-full h-2">
+                <div
+                  className="bg-primary h-2 rounded-full transition-all"
+                  style={{ width: `${total > 0 ? (packed / total) * 100 : 0}%` }}
+                />
+              </div>
+            </CardContent>
+          </Card>
         )}
 
-        <AnimatePresence>
-          {adding && (
-            <motion.div
-              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-              animate={{ opacity: 1, height: "auto", marginBottom: 32 }}
-              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-              className="overflow-hidden"
-            >
-              <Card className="glass-panel border-secondary/30 rounded-none relative">
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-secondary" />
-                <CardContent className="p-6">
-                  <form onSubmit={handleAdd} className="flex flex-col md:flex-row gap-4 items-end">
-                    <div className="flex-1 space-y-3 w-full">
-                      <Label className="font-mono text-[10px] uppercase tracking-widest text-secondary">Asset Designation</Label>
-                      <Input
-                        placeholder="E.g., TACTICAL FLASHLIGHT"
-                        value={newItem.name}
-                        onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                        className="bg-background/50 border-white/10 rounded-none h-12 font-mono focus-visible:ring-secondary focus-visible:border-secondary transition-all uppercase"
-                        autoFocus
-                        required
-                      />
-                    </div>
-                    <div className="w-full md:w-64 space-y-3">
-                      <Label className="font-mono text-[10px] uppercase tracking-widest text-secondary">Classification</Label>
-                      <select
-                        value={newItem.category ?? "Other"}
-                        onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
-                        className="w-full h-12 bg-background/50 border border-white/10 rounded-none font-mono uppercase text-sm px-4 focus:ring-1 focus:ring-secondary focus:border-secondary outline-none transition-all appearance-none"
-                      >
-                        {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </div>
-                    <Button type="submit" disabled={createItem.isPending} className="w-full md:w-auto h-12 rounded-none font-mono uppercase tracking-widest bg-secondary text-secondary-foreground hover:bg-secondary/90 px-8">
-                      Append
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {adding && (
+          <Card>
+            <CardContent className="p-4">
+              <form onSubmit={handleAdd} className="flex gap-3 flex-wrap">
+                <Input
+                  placeholder="Item name"
+                  value={newItem.name}
+                  onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                  className="flex-1 min-w-40"
+                  autoFocus
+                  required
+                />
+                <select
+                  value={newItem.category ?? "Other"}
+                  onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
+                  className="border rounded-md px-3 py-2 text-sm bg-background"
+                >
+                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <Button type="submit" disabled={createItem.isPending}>Add</Button>
+                <Button type="button" variant="ghost" onClick={() => setAdding(false)}>Cancel</Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
 
         {isLoading ? (
-          <div className="space-y-6">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="space-y-3">
-                <Skeleton className="h-6 w-32 bg-white/10 rounded-none" />
-                <Skeleton className="h-16 w-full bg-white/5 rounded-none" />
-                <Skeleton className="h-16 w-full bg-white/5 rounded-none" />
-              </div>
-            ))}
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
           </div>
         ) : total === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="text-center py-24 glass-panel border border-white/10 rounded-none relative overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-secondary/5 pattern-grid-lg opacity-20 pointer-events-none" />
-            <Package className="h-16 w-16 text-secondary/40 mx-auto mb-6" />
-            <h3 className="font-serif text-2xl uppercase tracking-widest text-foreground mb-2">Manifest Empty</h3>
-            <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-8">No assets requisitioned for this mission.</p>
-            <Button onClick={() => setAdding(true)} className="rounded-none font-mono uppercase tracking-widest bg-secondary hover:bg-secondary/90 text-secondary-foreground border border-secondary shadow-[0_0_15px_rgba(255,215,0,0.3)] h-12 px-8">
-              Initialize Manifest
-            </Button>
-          </motion.div>
+          <div className="text-center py-16 border-2 border-dashed rounded-xl">
+            <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Nothing packed yet</h3>
+            <p className="text-muted-foreground mb-6">Start adding items to your packing list</p>
+            <Button onClick={() => setAdding(true)}>Add your first item</Button>
+          </div>
         ) : (
-          <motion.div variants={container} initial="hidden" animate="show" className="space-y-8">
+          <div className="space-y-4">
             {Object.entries(grouped).map(([category, catItems]) => (
-              <motion.div variants={item} key={category}>
-                <div className="flex items-center gap-4 mb-4">
-                  <h3 className="font-mono text-sm font-bold uppercase tracking-widest text-secondary">{category}</h3>
-                  <div className="h-px flex-1 bg-white/10" />
-                  <span className="font-mono text-[10px] text-muted-foreground border border-white/10 px-2 py-0.5">
-                    {catItems.filter((i) => i.isPacked).length}/{catItems.length} SECURED
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Card key={category}>
+                <CardHeader className="pb-2 pt-4 px-4">
+                  <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+                    <Badge variant="secondary">{category}</Badge>
+                    <span className="font-normal">{catItems.filter((i) => i.isPacked).length}/{catItems.length}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4 space-y-2">
                   {catItems.map((item) => (
-                    <div 
-                      key={item.id} 
-                      className={`group flex items-center justify-between p-4 border transition-all ${
-                        item.isPacked 
-                          ? "bg-secondary/5 border-secondary/20 text-muted-foreground" 
-                          : "bg-background/50 border-white/10 hover:border-white/30 text-foreground"
-                      }`}
-                    >
-                      <div className="flex items-center gap-4 flex-1 cursor-pointer" onClick={() => handleToggle(item.id, !item.isPacked)}>
-                        <div className={`w-5 h-5 border flex items-center justify-center transition-colors ${
-                          item.isPacked ? "border-secondary bg-secondary text-secondary-foreground" : "border-white/30 group-hover:border-secondary/50"
-                        }`}>
-                          {item.isPacked && <CheckSquare className="h-3.5 w-3.5" />}
-                        </div>
-                        <span className={`font-mono text-sm uppercase tracking-wide truncate ${item.isPacked ? "line-through opacity-50" : ""}`}>
-                          {item.name}
-                        </span>
-                      </div>
-                      
+                    <div key={item.id} className="flex items-center gap-3 group py-1.5">
+                      <Checkbox
+                        checked={item.isPacked ?? false}
+                        onCheckedChange={(checked) => handleToggle(item.id, !!checked)}
+                      />
+                      <span className={`flex-1 text-sm ${item.isPacked ? "line-through text-muted-foreground" : ""}`}>
+                        {item.name}
+                      </span>
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-none opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/20 hover:text-destructive flex-shrink-0 ml-2"
-                        onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                        size="sm"
+                        className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                        onClick={() => handleDelete(item.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   ))}
-                </div>
-              </motion.div>
+                </CardContent>
+              </Card>
             ))}
-          </motion.div>
+          </div>
         )}
       </div>
     </AppLayout>
